@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% load static %}
+    {% load leaflet_tags %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Page</title>
+    <link rel="stylesheet" href="{% static 'leaflet/leaflet.css' %}">
+    <script src="{% static 'leaflet/leaflet.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'leaflet-groupedlayercontrol/src/leaflet.groupedlayercontrol.css' %}">
+    <script src="{% static 'leaflet-groupedlayercontrol/src/leaflet.groupedlayercontrol.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'leaflet-search-master/src/leaflet-search.css' %}">
+    <script src="{% static 'leaflet-search-master/src/leaflet-search.js' %}"></script>
+    <script src="{% static 'dist/leaflet.ajax.js' %}"></script>
+    <style>
+        #map {
+            width: 1200px;
+            height: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Market Plots</h1>
+
+    <label for="areaFilter">Select Area Range:</label>
+    <select id="areaFilter" onchange="updateFilter()">
+        <option value="all">All</option>
+        <option value="greater_than_0.1">Greater than 0.1 ha</option>
+        <option value="between_0.05_and_0.1">0.05 - 0.1 ha</option>
+        <option value="below_0.05">Below 0.05 ha</option>
+    </select>
+
+    <p id="plotCount"></p>
+
+    <div id="map"></div>
+
+    <script>
+        var currentFilter = 'all';  
+        var map;
+        var dataset;
+        var totalPlots;
+
+        function updateFilter() {
+            currentFilter = document.getElementById('areaFilter').value;
+           
+            dataset.setStyle(filterStyle);
+            
+            updatePlotCount();
+        }
+
+        function updatePlotCount() {
+            var count = 0;
+            if (currentFilter === 'all') {
+                count = totalPlots;
+            } else {
+                dataset.eachLayer(function (layer) {
+                    if (layer.options.fillColor !== 'transparent') {
+                        count++;
+                    }
+                });
+            }
+            document.getElementById('plotCount').innerText = `(${count})`;
+        }
+
+        function output_layers(map, options) {
+            var osm = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 25,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            });
+
+            var OpenTopoMap = L.tileLayer('http://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                maxZoom: 25,
+                attribution: 'Map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+            });
+            
+            dataset = new L.GeoJSON.AJAX("{% url 'Plots_data' %}", {
+                onEachFeature: function (feature, layer) {
+                    var popupContent = "<strong>Plot Number:</strong> " + feature.properties.plot_number + "<br>" +
+                        "<strong>Area (Ha):</strong> " + feature.properties.parcel_area + "<br>" +
+                        "<strong>Name:</strong> " + feature.properties.owner_name;
+                    layer.bindPopup(popupContent);
+                },
+                style: filterStyle
+            });
+
+            map = L.map('map');
+
+            osm.addTo(map);
+
+            var baseLayers = {
+                "OSM": osm,
+                "OpenTopoMap": OpenTopoMap
+            };
+
+            var groupedOverlays = {
+                "Layers": {
+                    "plots": dataset
+                }
+            };
+
+       
+            if (L.control.groupedLayers) {
+                L.control.groupedLayers(baseLayers, groupedOverlays).addTo(map);
+            } else {
+                console.error("Leaflet Grouped Layer Control plugin is not loaded.");
+            }
+
+            dataset.on('data:loaded', function () {
+            
+                if (dataset.getBounds().isValid()) {
+                    
+                    map.fitBounds(dataset.getBounds());
+                } else {
+                    console.error('Invalid bounds for dataset layer');
+                }
+            
+                totalPlots = dataset.getLayers().length;
+               
+                updatePlotCount();
+            });
+            
+           
+            var searchControl = new L.Control.Search({
+                layer: dataset,
+                propertyName: 'plot_number',
+                moveToLocation: function(latlng) {
+                    map.setView(latlng, 14);
+                }
+            });
+            searchControl.addTo(map);
+        }
+
+        function filterStyle(feature) {
+            var area = parseFloat(feature.properties.parcel_area);
+
+            switch (currentFilter) {
+                case 'greater_than_0.1':
+                    return { fillColor: area > 0.1 ? 'green' : 'transparent'};
+                case 'between_0.05_and_0.1':
+                    return { fillColor: area >= 0.05 && area <= 0.1 ? 'yellow' : 'transparent'};
+                case 'below_0.05':
+                    return { fillColor: area < 0.05 ? '#96081b' : 'transparent'};
+                default:
+                    return { fillColor: 'transparent'};  
+            }
+        }
+
+        output_layers(map, {});
+    </script>
+</body>
+</html>
