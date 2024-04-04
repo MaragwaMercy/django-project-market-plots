@@ -135,8 +135,9 @@ STATICFILES_DIR =(
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-GDAL_LIBRARY_PATH = 'C:/Users/DELL/anaconda3/envs/pygdal/Library/bin/gdal.dll'
-GEOS_LIBRARY_PATH = 'C:/Users/DELL/anaconda3/envs/pygdal/Library/bin/geos_c.dll'
+GDAL_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgdal.so'
+GEOS_LIBRARY_PATH = '/usr/lib/x86_64-linux-gnu/libgeos_c.so'
+
 
 LEAFLET_CONFIG = {
     'DEFAULT_CENTER': (-1.28, 36.81),
